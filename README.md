@@ -5,6 +5,15 @@ Complete Tinder Clone application with **Backend (Laravel PHP)** and **Frontend 
 ![Tinder Clone](https://img.shields.io/badge/Laravel-10.x-red) ![React Native](https://img.shields.io/badge/React%20Native-Expo-blue) ![License](https://img.shields.io/badge/License-MIT-green)
 
 ---
+## 🎬 Demo Preview
+
+https://github.com/user-attachments/assets/preview/preview-record.mov
+
+<video src="preview/preview-record.mov" width="100%" controls autoplay loop>
+  Your browser does not support the video tag.
+</video>
+
+> 📱 Video demo menampilkan fitur swipe, like, match, dan admin dashboard
 
 ## 📦 Project Structure
 ```
