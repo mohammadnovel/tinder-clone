@@ -7,7 +7,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Spatie\Permission\Traits\HasRoles; // Tambahkan ini
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
@@ -15,8 +15,6 @@ class User extends Authenticatable
 
     /**
      * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
      */
     protected $fillable = [
         'name',
@@ -28,12 +26,11 @@ class User extends Authenticatable
         'bio',
         'latitude',
         'longitude',
+        'is_blocked',  // TAMBAHAN
     ];
 
     /**
      * The attributes that should be hidden for serialization.
-     *
-     * @var array<int, string>
      */
     protected $hidden = [
         'password',
@@ -42,8 +39,6 @@ class User extends Authenticatable
 
     /**
      * The attributes that should be cast.
-     *
-     * @var array<string, string>
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
@@ -51,6 +46,7 @@ class User extends Authenticatable
         'pictures' => 'array',
         'latitude' => 'decimal:8',
         'longitude' => 'decimal:8',
+        'is_blocked' => 'boolean',  // TAMBAHAN
     ];
 
     /**
@@ -59,6 +55,22 @@ class User extends Authenticatable
     public function swipes(): HasMany
     {
         return $this->hasMany(Swipe::class, 'swiper_id');
+    }
+
+    /**
+     * Swipes received by this user (TAMBAHAN)
+     */
+    public function receivedSwipes(): HasMany
+    {
+        return $this->hasMany(Swipe::class, 'swiped_id');
+    }
+
+    /**
+     * Popular notifications for this user (TAMBAHAN)
+     */
+    public function popularNotifications(): HasMany
+    {
+        return $this->hasMany(PopularNotification::class);
     }
 
     /**

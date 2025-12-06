@@ -15,7 +15,7 @@ use Carbon\Carbon;
 /**
  * @OA\Tag(
  *     name="Admin",
- *     description="API Endpoints for admin dashboard (requires admin role)"
+ *     description="API Endpoints for admin dashboard"
  * )
  */
 class AdminController extends Controller
@@ -26,15 +26,8 @@ class AdminController extends Controller
      *     summary="Get dashboard statistics",
      *     tags={"Admin"},
      *     security={{"bearerAuth":{}}},
-     *     @OA\Response(
-     *         response=200,
-     *         description="Dashboard statistics",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="success", type="boolean", example=true),
-     *             @OA\Property(property="data", type="object")
-     *         )
-     *     ),
-     *     @OA\Response(response=403, description="Unauthorized - Admin access required")
+     *     @OA\Response(response=200, description="Dashboard statistics"),
+     *     @OA\Response(response=403, description="Unauthorized")
      * )
      */
     public function dashboard(): JsonResponse
@@ -42,11 +35,9 @@ class AdminController extends Controller
         $totalUsers = User::count();
         $newUsersToday = User::whereDate('created_at', Carbon::today())->count();
         $newUsersWeek = User::where('created_at', '>=', Carbon::now()->subWeek())->count();
-        $newUsersMonth = User::where('created_at', '>=', Carbon::now()->subMonth())->count();
 
         $totalSwipesToday = Swipe::whereDate('created_at', Carbon::today())->count();
         $totalSwipesWeek = Swipe::where('created_at', '>=', Carbon::now()->subWeek())->count();
-        $totalSwipesMonth = Swipe::where('created_at', '>=', Carbon::now()->subMonth())->count();
 
         $totalLikes = Swipe::where('type', 'like')->count();
         $totalDislikes = Swipe::where('type', 'dislike')->count();
@@ -62,9 +53,9 @@ class AdminController extends Controller
             ->where('s1.swiper_id', '<', 's1.swiped_id')
             ->count();
 
-        // Popular users count (50+ likes)
-        $popularUsersCount = User::withCount(['receivedSwipes as likes_count' => function ($query) {
-            $query->where('type', 'like');
+        // Popular users (50+ likes)
+        $popularUsersCount = User::withCount(['receivedSwipes as likes_count' => function ($q) {
+            $q->where('type', 'like');
         }])->having('likes_count', '>=', 50)->count();
 
         return response()->json([
@@ -74,12 +65,10 @@ class AdminController extends Controller
                     'total' => $totalUsers,
                     'new_today' => $newUsersToday,
                     'new_this_week' => $newUsersWeek,
-                    'new_this_month' => $newUsersMonth,
                 ],
                 'swipes' => [
                     'today' => $totalSwipesToday,
                     'this_week' => $totalSwipesWeek,
-                    'this_month' => $totalSwipesMonth,
                 ],
                 'interactions' => [
                     'total_likes' => $totalLikes,
@@ -97,11 +86,7 @@ class AdminController extends Controller
      *     summary="Get all users with pagination",
      *     tags={"Admin"},
      *     security={{"bearerAuth":{}}},
-     *     @OA\Parameter(name="page", in="query", description="Page number", @OA\Schema(type="integer", default=1)),
-     *     @OA\Parameter(name="per_page", in="query", description="Items per page", @OA\Schema(type="integer", default=15)),
-     *     @OA\Parameter(name="search", in="query", description="Search by name or email", @OA\Schema(type="string")),
-     *     @OA\Parameter(name="role", in="query", description="Filter by role (user/admin)", @OA\Schema(type="string")),
-     *     @OA\Response(response=200, description="List of users with pagination")
+     *     @OA\Response(response=200, description="List of users")
      * )
      */
     public function users(Request $request): JsonResponse
@@ -111,18 +96,13 @@ class AdminController extends Controller
         $role = $request->get('role');
 
         $query = User::with('roles')
-            ->withCount(['receivedSwipes as likes_count' => function ($query) {
-                $query->where('type', 'like');
-            }])
-            ->withCount(['receivedSwipes as dislikes_count' => function ($query) {
-                $query->where('type', 'dislike');
-            }])
-            ->withCount('swipes as total_swipes');
+            ->withCount(['receivedSwipes as likes_count' => fn($q) => $q->where('type', 'like')])
+            ->withCount(['receivedSwipes as dislikes_count' => fn($q) => $q->where('type', 'dislike')]);
 
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%");
+                  ->orWhere('email', 'like', "%{$search}%");
             });
         }
 
@@ -144,45 +124,19 @@ class AdminController extends Controller
      *     summary="Get user detail",
      *     tags={"Admin"},
      *     security={{"bearerAuth":{}}},
-     *     @OA\Parameter(name="id", in="path", required=true, description="User ID", @OA\Schema(type="integer")),
-     *     @OA\Response(response=200, description="User detail"),
-     *     @OA\Response(response=404, description="User not found")
+     *     @OA\Response(response=200, description="User detail")
      * )
      */
     public function userDetail(int $id): JsonResponse
     {
         $user = User::with('roles')
-            ->withCount(['receivedSwipes as likes_count' => function ($query) {
-                $query->where('type', 'like');
-            }])
-            ->withCount(['receivedSwipes as dislikes_count' => function ($query) {
-                $query->where('type', 'dislike');
-            }])
-            ->withCount('swipes as total_swipes')
+            ->withCount(['receivedSwipes as likes_count' => fn($q) => $q->where('type', 'like')])
+            ->withCount(['receivedSwipes as dislikes_count' => fn($q) => $q->where('type', 'dislike')])
             ->findOrFail($id);
-
-        // Get recent swipes by this user
-        $recentSwipes = Swipe::where('swiper_id', $id)
-            ->with('swiped:id,name,pictures')
-            ->orderBy('created_at', 'desc')
-            ->limit(10)
-            ->get();
-
-        // Get recent likes received
-        $recentLikesReceived = Swipe::where('swiped_id', $id)
-            ->where('type', 'like')
-            ->with('swiper:id,name,pictures')
-            ->orderBy('created_at', 'desc')
-            ->limit(10)
-            ->get();
 
         return response()->json([
             'success' => true,
-            'data' => [
-                'user' => $user,
-                'recent_swipes' => $recentSwipes,
-                'recent_likes_received' => $recentLikesReceived,
-            ],
+            'data' => $user,
         ]);
     }
 
@@ -192,16 +146,7 @@ class AdminController extends Controller
      *     summary="Update user role",
      *     tags={"Admin"},
      *     security={{"bearerAuth":{}}},
-     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
-     *     @OA\RequestBody(
-     *         required=true,
-     *         @OA\JsonContent(
-     *             required={"role"},
-     *             @OA\Property(property="role", type="string", enum={"user", "admin"}, example="admin")
-     *         )
-     *     ),
-     *     @OA\Response(response=200, description="Role updated successfully"),
-     *     @OA\Response(response=404, description="User not found")
+     *     @OA\Response(response=200, description="Role updated")
      * )
      */
     public function updateRole(Request $request, int $id): JsonResponse
@@ -211,8 +156,6 @@ class AdminController extends Controller
         ]);
 
         $user = User::findOrFail($id);
-
-        // Sync roles (remove all and assign new)
         $user->syncRoles([$request->role]);
 
         return response()->json([
@@ -225,17 +168,9 @@ class AdminController extends Controller
     /**
      * @OA\Put(
      *     path="/api/v1/admin/users/{id}/block",
-     *     summary="Block or unblock user",
+     *     summary="Block/unblock user",
      *     tags={"Admin"},
      *     security={{"bearerAuth":{}}},
-     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
-     *     @OA\RequestBody(
-     *         required=true,
-     *         @OA\JsonContent(
-     *             required={"blocked"},
-     *             @OA\Property(property="blocked", type="boolean", example=true)
-     *         )
-     *     ),
      *     @OA\Response(response=200, description="User block status updated")
      * )
      */
@@ -249,14 +184,13 @@ class AdminController extends Controller
         $user->is_blocked = $request->blocked;
         $user->save();
 
-        // Revoke all tokens if blocked
         if ($request->blocked) {
             $user->tokens()->delete();
         }
 
         return response()->json([
             'success' => true,
-            'message' => $request->blocked ? 'User blocked successfully' : 'User unblocked successfully',
+            'message' => $request->blocked ? 'User blocked' : 'User unblocked',
             'data' => $user,
         ]);
     }
@@ -267,17 +201,14 @@ class AdminController extends Controller
      *     summary="Get users with 50+ likes",
      *     tags={"Admin"},
      *     security={{"bearerAuth":{}}},
-     *     @OA\Parameter(name="min_likes", in="query", description="Minimum likes threshold", @OA\Schema(type="integer", default=50)),
-     *     @OA\Response(response=200, description="List of popular users")
+     *     @OA\Response(response=200, description="Popular users list")
      * )
      */
     public function popularUsers(Request $request): JsonResponse
     {
         $minLikes = $request->get('min_likes', 50);
 
-        $popularUsers = User::withCount(['receivedSwipes as likes_count' => function ($query) {
-            $query->where('type', 'like');
-        }])
+        $popularUsers = User::withCount(['receivedSwipes as likes_count' => fn($q) => $q->where('type', 'like')])
             ->having('likes_count', '>=', $minLikes)
             ->orderBy('likes_count', 'desc')
             ->get();
@@ -298,18 +229,14 @@ class AdminController extends Controller
      *     summary="Get email notification logs",
      *     tags={"Admin"},
      *     security={{"bearerAuth":{}}},
-     *     @OA\Parameter(name="page", in="query", @OA\Schema(type="integer", default=1)),
-     *     @OA\Parameter(name="per_page", in="query", @OA\Schema(type="integer", default=20)),
-     *     @OA\Response(response=200, description="Email notification logs with pagination")
+     *     @OA\Response(response=200, description="Email logs")
      * )
      */
     public function emailLogs(Request $request): JsonResponse
     {
-        $perPage = $request->get('per_page', 20);
-
         $logs = PopularNotification::with('user:id,name,email')
             ->orderBy('notified_at', 'desc')
-            ->paginate($perPage);
+            ->paginate(20);
 
         return response()->json([
             'success' => true,
@@ -333,7 +260,7 @@ class AdminController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Popular users check triggered successfully',
+            'message' => 'Popular users check triggered',
             'output' => trim($output),
         ]);
     }
