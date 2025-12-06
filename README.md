@@ -5,7 +5,7 @@ Complete Tinder Clone application with **Backend (Laravel PHP)** and **Frontend 
 ## 📦 Project Structure
 
 ```
-tinder-clone-complete/
+tinder-clone/
 ├── tinder-backend/       # Laravel PHP Backend API
 │   ├── app/
 │   ├── config/
