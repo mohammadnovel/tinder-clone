@@ -6,23 +6,26 @@
     <title>Tinder Clone API</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .gradient-bg {
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 50%, #ff8e53 100%);
-        }
-        .card-hover:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-        }
-        .animate-float {
-            animation: float 3s ease-in-out infinite;
-        }
-        @keyframes float {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
-        }
+        .gradient-bg { background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 50%, #ff8e53 100%); }
+        .card-hover:hover { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+        .animate-float { animation: float 3s ease-in-out infinite; }
+        @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
+
+    <!-- Flash Message -->
+    @if(session('success'))
+    <div class="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg" id="flash-message">
+        {{ session('success') }}
+    </div>
+    <script>
+        setTimeout(() => {
+            document.getElementById('flash-message').style.display = 'none';
+        }, 5000);
+    </script>
+    @endif
+
     <!-- Hero Section -->
     <div class="gradient-bg text-white">
         <nav class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
@@ -32,9 +35,19 @@
             </div>
             <div class="space-x-4">
                 <a href="/api/documentation" class="hover:text-pink-200 transition">API Docs</a>
-                <a href="/admin/login" class="bg-white text-pink-500 px-4 py-2 rounded-full font-semibold hover:bg-pink-100 transition">
-                    Admin Login
-                </a>
+                @auth
+                    <span class="text-pink-200">Hi, {{ Auth::user()->name }}</span>
+                    <form action="{{ route('logout') }}" method="POST" class="inline">
+                        @csrf
+                        <button type="submit" class="bg-white/20 px-4 py-2 rounded-full hover:bg-white/30 transition">
+                            Logout
+                        </button>
+                    </form>
+                @else
+                    <a href="/login" class="bg-white text-pink-500 px-4 py-2 rounded-full font-semibold hover:bg-pink-100 transition">
+                        Login
+                    </a>
+                @endauth
             </div>
         </nav>
 
@@ -50,10 +63,19 @@
                    class="bg-white text-pink-500 px-8 py-3 rounded-full font-bold hover:bg-pink-100 transition shadow-lg">
                     📚 View API Docs
                 </a>
-                <a href="/admin" 
-                   class="border-2 border-white text-white px-8 py-3 rounded-full font-bold hover:bg-white hover:text-pink-500 transition">
-                    🔐 Admin Panel
-                </a>
+                @auth
+                    @if(Auth::user()->hasRole('admin'))
+                    <a href="/admin" 
+                       class="border-2 border-white text-white px-8 py-3 rounded-full font-bold hover:bg-white hover:text-pink-500 transition">
+                        🔐 Admin Panel
+                    </a>
+                    @endif
+                @else
+                    <a href="/login" 
+                       class="border-2 border-white text-white px-8 py-3 rounded-full font-bold hover:bg-white hover:text-pink-500 transition">
+                        🔐 Login
+                    </a>
+                @endauth
             </div>
         </div>
 
@@ -68,42 +90,36 @@
         <h2 class="text-3xl font-bold text-center mb-12 text-gray-800">✨ Features</h2>
         
         <div class="grid md:grid-cols-3 gap-8">
-            <!-- Feature 1 -->
             <div class="bg-white rounded-xl p-6 shadow-lg card-hover transition duration-300">
                 <div class="text-4xl mb-4">🔐</div>
                 <h3 class="text-xl font-bold mb-2 text-gray-800">Authentication</h3>
                 <p class="text-gray-600">Complete auth system with register, login, logout using Laravel Sanctum tokens.</p>
             </div>
 
-            <!-- Feature 2 -->
             <div class="bg-white rounded-xl p-6 shadow-lg card-hover transition duration-300">
                 <div class="text-4xl mb-4">💕</div>
                 <h3 class="text-xl font-bold mb-2 text-gray-800">Swipe & Match</h3>
                 <p class="text-gray-600">Like or dislike users, get matches when both users like each other.</p>
             </div>
 
-            <!-- Feature 3 -->
             <div class="bg-white rounded-xl p-6 shadow-lg card-hover transition duration-300">
                 <div class="text-4xl mb-4">👥</div>
                 <h3 class="text-xl font-bold mb-2 text-gray-800">User Discovery</h3>
                 <p class="text-gray-600">Browse recommended people with pagination, excluding already swiped users.</p>
             </div>
 
-            <!-- Feature 4 -->
             <div class="bg-white rounded-xl p-6 shadow-lg card-hover transition duration-300">
                 <div class="text-4xl mb-4">👑</div>
                 <h3 class="text-xl font-bold mb-2 text-gray-800">Admin Dashboard</h3>
                 <p class="text-gray-600">Full admin panel to manage users, view statistics, and monitor activity.</p>
             </div>
 
-            <!-- Feature 5 -->
             <div class="bg-white rounded-xl p-6 shadow-lg card-hover transition duration-300">
                 <div class="text-4xl mb-4">📧</div>
                 <h3 class="text-xl font-bold mb-2 text-gray-800">Email Notifications</h3>
                 <p class="text-gray-600">Automated email alerts for popular users (50+ likes) via Mailtrap.</p>
             </div>
 
-            <!-- Feature 6 -->
             <div class="bg-white rounded-xl p-6 shadow-lg card-hover transition duration-300">
                 <div class="text-4xl mb-4">⏰</div>
                 <h3 class="text-xl font-bold mb-2 text-gray-800">Cronjob</h3>
@@ -118,7 +134,6 @@
             <h2 class="text-3xl font-bold text-center mb-12 text-gray-800">📡 API Endpoints</h2>
             
             <div class="grid md:grid-cols-2 gap-6">
-                <!-- Auth Endpoints -->
                 <div class="bg-white rounded-xl p-6 shadow-lg">
                     <h3 class="text-lg font-bold mb-4 text-gray-800 flex items-center">
                         <span class="bg-green-100 text-green-600 px-2 py-1 rounded text-sm mr-2">AUTH</span>
@@ -144,7 +159,6 @@
                     </div>
                 </div>
 
-                <!-- People Endpoints -->
                 <div class="bg-white rounded-xl p-6 shadow-lg">
                     <h3 class="text-lg font-bold mb-4 text-gray-800 flex items-center">
                         <span class="bg-pink-100 text-pink-600 px-2 py-1 rounded text-sm mr-2">PEOPLE</span>
@@ -170,7 +184,6 @@
                     </div>
                 </div>
 
-                <!-- Swipe Endpoints -->
                 <div class="bg-white rounded-xl p-6 shadow-lg">
                     <h3 class="text-lg font-bold mb-4 text-gray-800 flex items-center">
                         <span class="bg-red-100 text-red-600 px-2 py-1 rounded text-sm mr-2">SWIPE</span>
@@ -192,7 +205,6 @@
                     </div>
                 </div>
 
-                <!-- Admin Endpoints -->
                 <div class="bg-white rounded-xl p-6 shadow-lg">
                     <h3 class="text-lg font-bold mb-4 text-gray-800 flex items-center">
                         <span class="bg-purple-100 text-purple-600 px-2 py-1 rounded text-sm mr-2">ADMIN</span>
@@ -228,8 +240,8 @@
         <div class="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
             <div class="bg-gradient-to-br from-red-500 to-pink-500 rounded-xl p-6 text-white shadow-lg">
                 <div class="text-3xl mb-2">👑</div>
-                <h3 class="text-xl font-bold mb-2">Admin</h3>
-                <p class="text-pink-100 text-sm mb-4">Full access to dashboard</p>
+                <h3 class="text-xl font-bold">Admin</h3>
+                <p class="text-pink-100 text-sm mb-4">Full dashboard access</p>
                 <div class="bg-white/20 rounded p-3 font-mono text-sm">
                     <p>admin@example.com</p>
                     <p>admin123</p>
@@ -238,7 +250,7 @@
 
             <div class="bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl p-6 text-white shadow-lg">
                 <div class="text-3xl mb-2">👨</div>
-                <h3 class="text-xl font-bold mb-2">User (John)</h3>
+                <h3 class="text-xl font-bold">User (John)</h3>
                 <p class="text-blue-100 text-sm mb-4">Regular user account</p>
                 <div class="bg-white/20 rounded p-3 font-mono text-sm">
                     <p>john@example.com</p>
@@ -248,7 +260,7 @@
 
             <div class="bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl p-6 text-white shadow-lg">
                 <div class="text-3xl mb-2">👩</div>
-                <h3 class="text-xl font-bold mb-2">User (Jane)</h3>
+                <h3 class="text-xl font-bold">User (Jane)</h3>
                 <p class="text-purple-100 text-sm mb-4">Regular user account</p>
                 <div class="bg-white/20 rounded p-3 font-mono text-sm">
                     <p>jane@example.com</p>
