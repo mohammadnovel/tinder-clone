@@ -2,10 +2,12 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Person;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Log;
+use App\Models\User;
+use App\Models\PopularNotification;
+use App\Mail\PopularUsersAlert;
 use Illuminate\Support\Facades\Mail;
+use Carbon\Carbon;
 
 class CheckPopularUsers extends Command
 {
@@ -14,7 +16,9 @@ class CheckPopularUsers extends Command
      *
      * @var string
      */
-    protected $signature = 'users:check-popular {--threshold=50 : Minimum likes to be considered popular}';
+    protected $signature = 'users:check-popular 
+                            {--min-likes=50 : Minimum likes threshold}
+                            {--force : Force send notification even if already notified today}';
 
     /**
      * The console command description.
@@ -28,77 +32,71 @@ class CheckPopularUsers extends Command
      */
     public function handle(): int
     {
-        $threshold = (int) $this->option('threshold');
-        
-        $this->info("Checking for people with {$threshold}+ likes...");
+        $minLikes = $this->option('min-likes');
+        $force = $this->option('force');
 
-        // Get people with likes count
-        $popularPeople = Person::withCount(['swipesReceived as likes_count' => function ($query) {
+        $this->info("🔍 Checking for popular users (≥{$minLikes} likes)...");
+
+        // Get admin email from config
+        $adminEmail = config('app.admin_email', 'admin@example.com');
+
+        // Build query for popular users
+        $query = User::withCount(['receivedSwipes as likes_count' => function ($query) {
             $query->where('type', 'like');
         }])
-        ->having('likes_count', '>=', $threshold)
-        ->get();
+            ->having('likes_count', '>=', $minLikes);
 
-        if ($popularPeople->isEmpty()) {
-            $this->info('No popular people found.');
+        // Unless force, exclude users who were notified in the last 24 hours
+        if (!$force) {
+            $query->whereDoesntHave('popularNotifications', function ($q) {
+                $q->where('notified_at', '>=', Carbon::now()->subDay());
+            });
+        }
+
+        $popularUsers = $query->get();
+
+        if ($popularUsers->isEmpty()) {
+            $this->info('✨ No new popular users to notify.');
             return Command::SUCCESS;
         }
 
-        $this->info("Found {$popularPeople->count()} popular people.");
+        $this->info("🔥 Found {$popularUsers->count()} popular user(s):");
 
-        foreach ($popularPeople as $person) {
-            $this->notifyAdmin($person);
-            $this->line("  - {$person->name} (ID: {$person->id}) has {$person->likes_count} likes");
-        }
+        // Display table of popular users
+        $tableData = $popularUsers->map(function ($user) {
+            return [
+                'ID' => $user->id,
+                'Name' => $user->name,
+                'Email' => $user->email,
+                'Likes' => $user->likes_count,
+            ];
+        })->toArray();
 
-        $this->info("Admin notification sent for {$popularPeople->count()} popular people.");
-        
-        return Command::SUCCESS;
-    }
+        $this->table(['ID', 'Name', 'Email', 'Likes'], $tableData);
 
-    /**
-     * Send notification email to admin
-     */
-    private function notifyAdmin(Person $person): void
-    {
-        $adminEmail = config('mail.admin_email', env('ADMIN_EMAIL', 'admin@example.com'));
+        // Send email notification
+        $this->info("📧 Sending notification to {$adminEmail}...");
 
         try {
-            // In production, use a proper Mailable class
-            Mail::raw(
-                $this->buildEmailContent($person),
-                function ($message) use ($adminEmail, $person) {
-                    $message->to($adminEmail)
-                        ->subject("🔥 Popular User Alert: {$person->name} has {$person->likes_count}+ likes!");
-                }
-            );
+            Mail::to($adminEmail)->send(new PopularUsersAlert($popularUsers));
 
-            Log::info("Admin notified about popular person: {$person->name} (ID: {$person->id})");
+            // Log notifications
+            foreach ($popularUsers as $user) {
+                PopularNotification::create([
+                    'user_id' => $user->id,
+                    'likes_count' => $user->likes_count,
+                    'admin_email' => $adminEmail,
+                    'notified_at' => Carbon::now(),
+                ]);
+            }
+
+            $this->info('✅ Notification sent successfully!');
+
         } catch (\Exception $e) {
-            Log::error("Failed to notify admin about person {$person->id}: " . $e->getMessage());
-            $this->error("Failed to send email for {$person->name}: " . $e->getMessage());
+            $this->error('❌ Failed to send notification: ' . $e->getMessage());
+            return Command::FAILURE;
         }
-    }
 
-    /**
-     * Build email content
-     */
-    private function buildEmailContent(Person $person): string
-    {
-        return <<<EMAIL
-        🔥 Popular User Alert!
-        
-        User Details:
-        - Name: {$person->name}
-        - ID: {$person->id}
-        - Age: {$person->age}
-        - Location: {$person->location}
-        - Total Likes: {$person->likes_count}
-        
-        This user has received more than 50 likes and is now considered popular!
-        
-        ---
-        Tinder Clone Admin System
-        EMAIL;
+        return Command::SUCCESS;
     }
 }

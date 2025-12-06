@@ -13,10 +13,12 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         // Check for popular users every hour
-        $schedule->command('users:check-popular')
-            ->hourly()
-            ->withoutOverlapping()
-            ->appendOutputTo(storage_path('logs/popular-users.log'));
+        // $schedule->command('users:check-popular')
+        //     ->hourly()
+        //     ->withoutOverlapping()
+        //     ->appendOutputTo(storage_path('logs/popular-users.log'));
+        $schedule->command('users:check-popular')->everyMinute()
+                ->appendOutputTo(storage_path('logs/popular-users.log'));
 
         // Alternative: Run every day at midnight
         // $schedule->command('users:check-popular')->dailyAt('00:00');

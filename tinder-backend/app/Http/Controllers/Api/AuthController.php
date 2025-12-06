@@ -73,13 +73,16 @@ class AuthController extends Controller
             'pictures' => $validated['pictures'] ?? ['https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=600&fit=crop'],
         ]);
 
+        // ✅ TAMBAHAN: Auto-assign 'user' role saat register
+        $user->assignRole('user');
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
             'success' => true,
             'message' => 'User registered successfully',
             'data' => [
-                'user' => $user,
+                'user' => $user->load('roles'), // ✅ TAMBAHAN: Load roles
                 'token' => $token,
             ],
         ], 201);
@@ -106,7 +109,8 @@ class AuthController extends Controller
      *             @OA\Property(property="message", type="string", example="Login successful"),
      *             @OA\Property(property="data", type="object",
      *                 @OA\Property(property="user", type="object"),
-     *                 @OA\Property(property="token", type="string")
+     *                 @OA\Property(property="token", type="string"),
+     *                 @OA\Property(property="is_admin", type="boolean", example=false)
      *             )
      *         )
      *     ),
@@ -133,8 +137,9 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Login successful',
             'data' => [
-                'user' => $user,
+                'user' => $user->load('roles'), // ✅ TAMBAHAN: Load roles
                 'token' => $token,
+                'is_admin' => $user->hasRole('admin'), // ✅ TAMBAHAN: Flag is_admin
             ],
         ]);
     }
@@ -185,7 +190,11 @@ class AuthController extends Controller
     {
         return response()->json([
             'success' => true,
-            'data' => $request->user(),
+            'data' => [
+                'user' => $request->user()->load('roles'), // ✅ TAMBAHAN: Load roles
+                'is_admin' => $request->user()->hasRole('admin'), // ✅ TAMBAHAN: Flag is_admin
+                'permissions' => $request->user()->getAllPermissions()->pluck('name'), // ✅ TAMBAHAN: List permissions
+            ],
         ]);
     }
 }

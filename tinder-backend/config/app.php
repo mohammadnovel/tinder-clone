@@ -15,6 +15,7 @@ return [
     'maintenance' => [
         'driver' => 'file',
     ],
+    'admin_email' => env('ADMIN_EMAIL', 'admin@example.com'),
     'providers' => [
         Illuminate\Auth\AuthServiceProvider::class,
         Illuminate\Broadcasting\BroadcastServiceProvider::class,

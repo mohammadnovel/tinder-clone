@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\PersonController;
 use App\Http\Controllers\Api\SwipeController;
+use App\Http\Controllers\Api\AdminController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -54,7 +55,27 @@ Route::prefix('v1')->group(function () {
             Route::delete('/{swipe}', [SwipeController::class, 'undo']);    // Undo a swipe
         });
     });
+
+    Route::prefix('admin')->middleware('admin')->group(function () {
+            // Dashboard
+        Route::get('/dashboard', [AdminController::class, 'dashboard']);
+        
+        // User Management
+        Route::get('/users', [AdminController::class, 'users']);
+        Route::get('/users/{id}', [AdminController::class, 'userDetail']);
+        Route::put('/users/{id}/role', [AdminController::class, 'updateRole']);
+        Route::put('/users/{id}/block', [AdminController::class, 'blockUser']);
+        
+        // Popular Users
+        Route::get('/popular-users', [AdminController::class, 'popularUsers']);
+        
+        // Email Notifications
+        Route::get('/email-logs', [AdminController::class, 'emailLogs']);
+        Route::post('/send-popular-notification', [AdminController::class, 'sendPopularNotification']);
+    });
 });
+
+
 
 // Health check endpoint
 Route::get('/health', function () {
